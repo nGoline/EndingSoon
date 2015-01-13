@@ -5,6 +5,7 @@ static TextLayer *s_time_layer;
 static TextLayer *s_day_layer;
 static TextLayer *s_month_layer;
 static Layer *s_canvas_layer;
+static Layer *s_hour_layer;
 static int day_pixels = 0;
 static int month_pixels = 0;
 static int year_pixels = 0;
@@ -40,12 +41,23 @@ static void calculate_bars() {
   	time_t temp = time(NULL); 
   	struct tm * tick_time = localtime(&temp);
 	
+	//Declare the variables
 	int day = 0;
 	int month = 0;
 	int year = 0;
 	int minutes = 0;
+	int minutes_in_month = 0;
+	int minutes_in_year = 0;
+	int month_minutes = 0;
+	int year_minutes = 0;
+	double day_multiplier = 0;
+	double month_multiplier = 0;
+	double year_multiplier = 0;
   	char hour_b[] = "00";
 	char year_b[] = "0000";
+	
+	//
+	show_label = false;
 	
     // Write the current hours and minutes into the buffer
 	if(clock_is_24h_style() == true) {
@@ -78,26 +90,26 @@ static void calculate_bars() {
 	year = atoi(year_b);
 	
 	//get minutes in month
-	int minutes_in_month = days_in_month(month, year) * MINUTES_A_DAY;
+	minutes_in_month = days_in_month(month, year) * MINUTES_A_DAY;
 	//minutes in year
-	int minutes_in_year = MINUTES_A_DAY * (is_leap_year(year) ? 365 : 364);
+	minutes_in_year = MINUTES_A_DAY * (is_leap_year(year) ? 365 : 364);
 	
 	//get pixels of the day
-	double day_multiplier = (100 - (MINUTES_A_DAY - minutes) / (MINUTES_A_DAY * 0.01));	
+	day_multiplier = (100 - (MINUTES_A_DAY - minutes) / (MINUTES_A_DAY * 0.01));	
 	day_pixels = (int)(day_multiplier * 1.24);	
 	
 	//get pixels of the month
-	int month_minutes = (day * MINUTES_A_DAY) + minutes;
-	double month_multiplier = 100 - ((minutes_in_month - month_minutes) / (minutes_in_month * 0.01));	
+	month_minutes = (day * MINUTES_A_DAY) + minutes;
+	month_multiplier = 100 - ((minutes_in_month - month_minutes) / (minutes_in_month * 0.01));	
 	month_pixels = (int)(month_multiplier * 1.24);
 	
 	//get pixels of the year
-	int year_minutes = month_minutes;
+	year_minutes = month_minutes;
 	for(int i = 1; i < month; i++){
 		year_minutes += (days_in_month(i, year) * MINUTES_A_DAY);
 	}
 	
-	double year_multiplier = 100 - (minutes_in_year - year_minutes) / (minutes_in_year * 0.01);	
+	year_multiplier = 100 - (minutes_in_year - year_minutes) / (minutes_in_year * 0.01);	
 	year_pixels = (int)(year_multiplier * 1.24);	
 	
 	// Mark layer dirty to force a refresh
@@ -141,8 +153,6 @@ static void update_graphic_proc(Layer *this_layer, GContext *ctx) {
 		text_layer_set_text(s_time_layer, time_b);
 		text_layer_set_text(s_day_layer, day_b);
 		text_layer_set_text(s_month_layer, month_b);
-		if (taps != 2)
-			show_label = false;
 	} else{
 		text_layer_set_text(s_time_layer, "");
 		text_layer_set_text(s_day_layer, "");
@@ -184,7 +194,7 @@ static void main_window_load(Window *window) {
 	text_layer_set_font(s_month_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	text_layer_set_text_alignment(s_month_layer, GTextAlignmentCenter);
 	
-	Layer *s_hour_layer = window_get_root_layer(window);
+	s_hour_layer = window_get_root_layer(window);
   	GRect window_bounds = layer_get_bounds(s_hour_layer);
 
   	// Create Layer
@@ -217,8 +227,9 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   
 static void tap_handler(AccelAxisType axis, int32_t direction) {
 	if (taps == 2) {
+		taps = 0;
   		show_label = !show_label;
-		calculate_bars();
+		layer_mark_dirty(s_canvas_layer);
 	}
 	else taps++;
 }
